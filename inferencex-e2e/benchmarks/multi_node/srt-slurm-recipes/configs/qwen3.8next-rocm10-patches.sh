@@ -32,7 +32,7 @@
 # (sglang#40708), ratio-3 GDN packing (sglang#44302) and the 128-row hc_mix (sglang#41880), so
 # none of them is patched. All Python. A wheel that does not install, or a patch that no longer
 # applies, fails the worker.
-set -euo pipefail
+set -eo pipefail
 source /infmax-workspace/benchmarks/check_env.sh
 check_env_vars AITER_WHEEL_URL AITER_FLYDSL_VERSION
 # srtctl only looks up setup_script here; the patches live with the single-node
@@ -89,6 +89,8 @@ for module in (
         sys.exit(f"qwen3.8next: {module} is missing from amd-aiter {have}")
 print(f"qwen3.8next aiter wheel installed: amd-aiter {have}, flydsl {metadata.version('flydsl')}, from {spec.origin}")
 PY
+# Patch 12 changes files of the installed wheel, under the site-packages directory that holds aiter.
+site="$(python3 -c 'import aiter, pathlib; print(pathlib.Path(aiter.__file__).resolve().parents[1])')"
 
 apply() {
     git -c safe.directory="*" -C "$1" apply "$patches/$2"
@@ -105,6 +107,14 @@ apply /sgl-workspace/sglang 07-sglang-44103-aiter-gdn-chunked-prefill.patch
 apply /sgl-workspace/sglang 08-sglang-48090-mtp-sparse-rejection-target-probs.patch
 apply /sgl-workspace/sglang 09-sglang-50024-qwen4-packed-fp8-gdn-in-proj.patch
 apply /sgl-workspace/sgl-amd-mono 10-sgl-amd-mono-qfn-mono-tp-afbb25a.patch
+apply /sgl-workspace/sglang 11-sglang-48625-qsa-grouped-verify.patch
+apply "$site" 12-aiter-7556-qsa-flydsl-sparse-prefill.patch
+apply /sgl-workspace/sglang 13-sglang-51179-qsa-flydsl-prefill.patch
+apply /sgl-workspace/sglang 14-sglang-49852-mxfp4-moe-pad128.patch
+apply /sgl-workspace/sglang 15-sglang-50863-hc-prefill-triton.patch
+apply /sgl-workspace/sglang 16-sglang-50871-51263-qsa-prefill-topk-v2.patch
+apply /sgl-workspace/sglang 21-sglang-50871-51242-qsa-decode-select.patch
+apply /sgl-workspace/sglang 24-sglang-51180-gdn-verify.patch
 
 # The monokernel patch must be the code python imports (an editable install of the checkout).
 python3 - <<'PY'
